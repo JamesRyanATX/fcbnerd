@@ -1,0 +1,112 @@
+name: Release
+
+# Push a tag like v1.2.3 to publish. The tag must match `version` in
+# Sources/fcbnerd/main.swift. This workflow then:
+#   1. builds and tests,
+#   2. publishes a GitHub Release with a universal (arm64 + x86_64) binary,
+#   3. rewrites Formula/fcbnerd.rb in JamesRyanATX/homebrew-tap to point at it.
+#
+# Step 3 needs the TAP_DEPLOY_KEY secret: the private half of a deploy key
+# with write access on JamesRyanATX/homebrew-tap.
+#
+# Run it manually (Actions → Release → Run workflow) to republish an existing
+# tag, e.g. after fixing this workflow. Re-runs replace the release assets.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish, e.g. v1.2.3
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      # The formula template comes from the workflow's own commit, which on a
+      # manual run is main rather than the (possibly older) tag being published.
+      - uses: actions/checkout@v5
+      - name: Keep the formula template
+        run: cp .github/scripts/render-formula.sh "$RUNNER_TEMP/"
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Check the tag matches the version in the code
+        run: |
+          code_version=$(sed -n 's/^let version = "\(.*\)"$/\1/p' Sources/fcbnerd/main.swift)
+          if [ "v$code_version" != "$TAG" ]; then
+            echo "::error::Tag $TAG doesn't match version \"$code_version\" in Sources/fcbnerd/main.swift"
+            exit 1
+          fi
+          echo "VERSION=$code_version" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: swift test
+
+      - name: Build universal binary
+        run: |
+          swift build --configuration release --arch arm64 --arch x86_64
+          bin_path=$(swift build --configuration release --arch arm64 --arch x86_64 --show-bin-path)
+          lipo -info "$bin_path/fcbnerd"
+          "$bin_path/fcbnerd" --version | grep -qx "$VERSION"
+
+          mkdir -p dist/stage
+          cp "$bin_path/fcbnerd" LICENSE README.md dist/stage/
+          asset="fcbnerd-$VERSION-macos-universal.tar.gz"
+          tar -C dist/stage -czf "dist/$asset" fcbnerd LICENSE README.md
+          (cd dist && shasum -a 256 "$asset" > "$asset.sha256")
+          cat "dist/$asset.sha256"
+
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+          echo "ASSET_SHA256=$(cut -d ' ' -f 1 "dist/$asset.sha256")" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$ASSET" "dist/$ASSET.sha256" --clobber
+          else
+            gh release create "$TAG" "dist/$ASSET" "dist/$ASSET.sha256" \
+              --title "fcbnerd $VERSION" --generate-notes --verify-tag
+          fi
+
+      - name: Check out the tap
+        uses: actions/checkout@v5
+        with:
+          repository: JamesRyanATX/homebrew-tap
+          ssh-key: ${{ secrets.TAP_DEPLOY_KEY }}
+          path: homebrew-tap
+
+      - name: Update the formula
+        run: |
+          # Check the published asset, not just the local file.
+          published_sha256=$(curl -fsSL "https://github.com/JamesRyanATX/fcbnerd/releases/download/$TAG/$ASSET" | shasum -a 256 | cut -d ' ' -f 1)
+          if [ "$published_sha256" != "$ASSET_SHA256" ]; then
+            echo "::error::Published asset checksum $published_sha256 doesn't match built $ASSET_SHA256"
+            exit 1
+          fi
+
+          "$RUNNER_TEMP/render-formula.sh" "$VERSION" "$ASSET_SHA256" > homebrew-tap/Formula/fcbnerd.rb
+          cd homebrew-tap
+          if git diff --quiet; then
+            echo "Formula already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "fcbnerd $VERSION"
+          git push

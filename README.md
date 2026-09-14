@@ -40,9 +40,6 @@ brew trust --tap jamesryanatx/tap   # Homebrew 7+ won't load third-party taps un
 brew install JamesRyanATX/tap/fcbnerd
 ```
 
-Homebrew builds fcbnerd from source, so it needs current Command Line Tools
-(`xcode-select --install`, or Software Update).
-
 Or from source without Homebrew (Xcode or the Swift toolchain, macOS 13+):
 
 ```sh
@@ -270,10 +267,16 @@ output. It has no CoreMIDI dependency, so it's fully unit-tested.
 `Sources/fcbnerd` is the CLI: CoreMIDI connections, hotplug and the
 simulator.
 
-To release, bump `version` in `Sources/fcbnerd/main.swift`, tag `vX.Y.Z`, and
-update the formula in
-[JamesRyanATX/homebrew-tap](https://github.com/JamesRyanATX/homebrew-tap)
-(its README has the steps).
+To release, bump `version` in `Sources/fcbnerd/main.swift`, commit, and push a
+matching tag:
+
+```sh
+git tag -a v1.2.3 -m "fcbnerd 1.2.3" && git push origin v1.2.3
+```
+
+The [release workflow](.github/workflows/release.yml) tests, publishes a
+GitHub Release with a universal binary, and updates the formula in
+[JamesRyanATX/homebrew-tap](https://github.com/JamesRyanATX/homebrew-tap).
 
 ## License
 
