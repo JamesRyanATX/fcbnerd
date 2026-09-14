@@ -18,7 +18,7 @@ Or stream everything for another program to handle:
 $ fcbnerd
 {"type":"connected","source":"UM-ONE","time":"2026-09-14T20:01:00.120Z"}
 {"type":"pc","channel":1,"program":0,"source":"UM-ONE","time":"2026-09-14T20:01:02.345Z"}
-{"type":"cc","channel":1,"controller":27,"value":84,"source":"UM-ONE","time":"2026-09-14T20:01:03.910Z"}
+{"type":"cc","channel":1,"controller":30,"value":84,"source":"UM-ONE","time":"2026-09-14T20:01:03.910Z"}
 ```
 
 Built for the Behringer FCB1010, but nothing in it is FCB1010-specific: any
@@ -101,7 +101,7 @@ at the same time.
 | `CHANNEL:CONTROLLER:VALUE` | Control change, e.g. `1:20:127`. `cc:1:20:127` also works. |
 | `pc:CHANNEL:PROGRAM` | Program change, e.g. `pc:1:7`. |
 
-Any number can be `*`: `1:27:*` is every value of controller 27 on channel 1,
+Any number can be `*`: `1:30:*` is every value of controller 30 on channel 1,
 which is how you bind an expression pedal.
 
 Commands run in the background through `/bin/sh -c`, or the shell you give
@@ -119,7 +119,7 @@ stdout. They see these environment variables:
 
 ```sh
 # Expression pedal sets output volume
-fcbnerd -q --bind '1:27:*=osascript -e "set volume output volume $((MIDI_VALUE * 100 / 127))"'
+fcbnerd -q --bind '1:30:*=osascript -e "set volume output volume $((MIDI_VALUE * 100 / 127))"'
 ```
 
 Every stomp runs the command, so two quick presses run it twice even if the
@@ -140,8 +140,9 @@ started.
 
 ### Shell functions
 
-Functions and aliases from your interactive shell aren't loaded in `sh -c`. In bash, export a function to make it visible
-(macOS's `/bin/sh` is bash, so the default shell sees it):
+Functions and aliases from your interactive shell aren't loaded in `sh -c`.
+In bash, export a function to make it visible (macOS's `/bin/sh` is bash, so
+the default shell sees it):
 
 ```bash
 greet() { say "preset $MIDI_PROGRAM"; }
@@ -195,6 +196,11 @@ unique ID.
 
 ## Examples
 
+[`examples/developer.sh`](examples/developer.sh) is a complete, commented
+setup for software engineers: ten switches for running tests, waiting on CI,
+syncing the branch, muting the mic and more, plus an expression pedal on
+output volume. Run it with `DRY_RUN=1` first to see what each switch would do.
+
 ### Shell and jq
 
 Program 0 switches to the next Space, and program 1 to the previous one. This
@@ -216,7 +222,7 @@ done
 
 ### Hammerspoon
 
-Program 0 toggles play/pause, and an expression pedal on CC 27 sets the output
+Program 0 toggles play/pause, and an expression pedal on CC 30 sets the output
 volume. Output can arrive in
 partial chunks, so buffer until a newline. The path is for Apple Silicon;
 Homebrew on Intel installs to `/usr/local/bin`.
@@ -230,7 +236,7 @@ fcbnerd = hs.task.new("/opt/homebrew/bin/fcbnerd", nil, function(_, stdout, _)
     if event and event.type == "pc" and event.program == 0 then
       hs.eventtap.event.newSystemKeyEvent("PLAY", true):post()
       hs.eventtap.event.newSystemKeyEvent("PLAY", false):post()
-    elseif event and event.type == "cc" and event.controller == 27 then
+    elseif event and event.type == "cc" and event.controller == 30 then
       hs.audiodevice.defaultOutputDevice():setVolume(event.value / 127 * 100)
     end
   end
