@@ -1,7 +1,7 @@
 import FCBNerdCore
 import Foundation
 
-let version = "0.2.0"
+let version = "0.2.1"
 
 let usage = """
     fcbnerd \(version) -- stream MIDI foot controller events, or bind them to commands
