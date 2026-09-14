@@ -36,10 +36,14 @@ Maestro, a Node or Python script.
 ## Install
 
 ```sh
+brew trust --tap jamesryanatx/tap   # Homebrew 7+ won't load third-party taps until you trust them
 brew install JamesRyanATX/tap/fcbnerd
 ```
 
-Or from source (Xcode or the Swift toolchain, macOS 13+):
+Homebrew builds fcbnerd from source, so it needs current Command Line Tools
+(`xcode-select --install`, or Software Update).
+
+Or from source without Homebrew (Xcode or the Swift toolchain, macOS 13+):
 
 ```sh
 swift build -c release
@@ -267,8 +271,9 @@ output. It has no CoreMIDI dependency, so it's fully unit-tested.
 simulator.
 
 To release, bump `version` in `Sources/fcbnerd/main.swift`, tag `vX.Y.Z`, and
-update the tarball URL and sha256 in `packaging/homebrew/fcbnerd.rb` in the
-tap.
+update the formula in
+[JamesRyanATX/homebrew-tap](https://github.com/JamesRyanATX/homebrew-tap)
+(its README has the steps).
 
 ## License
 
