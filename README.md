@@ -1,6 +1,6 @@
 # fcbnerd
 
-![Cartoon: "Some people use a mouse. Some people use shortcuts. I use a MIDI pedalboard." A developer leans back with a coffee, stomping an FCB1010 to run a deploy.](docs/fcbnerd.png)
+![Cartoon: a developer leans back from a wide monitor with a coffee, stomping a footswitch on a MIDI pedalboard while a dog sleeps nearby.](docs/fcbnerd.png)
 
 Use a MIDI foot controller as an extra keyboard for your Mac. `fcbnerd`
 connects to your MIDI sources and either runs a shell command when a
