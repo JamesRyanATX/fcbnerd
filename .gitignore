@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+.DS_Store
+
+# OMC runtime/operational state -- not project content.
+.omc/
+!.omc/skills/
