@@ -26,12 +26,11 @@ CoreMIDI source works.
 
 ## Why a command-line tool instead of an app
 
-Anything that acts on your Mac (pressing keys, switching Spaces, running
-scripts) needs permissions that sandboxed apps can't get, and every user wants
-a different set of actions. `fcbnerd` only reads MIDI, which needs no
-permissions, and leaves the actions to your shell or to tools that already
-have the access: [Hammerspoon](https://www.hammerspoon.org), Keyboard
-Maestro, a Node or Python script.
+Anything that acts on your Mac, like pressing keys or running scripts, needs
+permissions that sandboxed apps can't get, and every user wants a different
+set of actions anyway. `fcbnerd` only reads MIDI, which needs no permissions.
+The actions belong to your shell, or to a tool that already has the access,
+such as [Hammerspoon](https://www.hammerspoon.org) or Keyboard Maestro.
 
 ## Install
 
@@ -123,25 +122,25 @@ stdout. They see these environment variables:
 fcbnerd -q --bind '1:27:*=osascript -e "set volume output volume $((MIDI_VALUE * 100 / 127))"'
 ```
 
-How commands run:
+Every stomp runs the command, so two quick presses run it twice even if the
+first run hasn't finished. That also means every matching message starts a
+shell. Keep broad patterns like `*:*:127` or `pc:*:*` away from noisy devices.
 
-- **Every stomp runs the command.** Two quick presses run it twice, even if
-  the first run hasn't finished. Every matching message starts a shell, so
-  keep broad patterns like `*:*:127` or `pc:*:*` away from noisy devices.
-- **Pedal sweeps don't pile up.** For a binding with a `*` value, only one
-  copy of the command runs at a time for each control (channel and
-  controller). While it runs, only that control's newest value is kept, and
-  it runs next. A sweep sends dozens of values a second, so this keeps the
-  number of shells down and still ends on the pedal's final position. If the
-  command is still running after 5 seconds, fcbnerd says so on stderr.
-- **Failures go to stderr.** A command that exits non-zero prints its binding
-  and exit status there.
-- **Stopping fcbnerd stops the commands.** Ctrl+C, `kill`, closing the
-  terminal or a closed stdout sends SIGTERM to any command still running,
-  including processes it started.
+Pedal sweeps are the exception. A sweep sends dozens of values a second, so
+for a binding with a `*` value, only one copy of the command runs at a time
+for each control (channel and controller). While it runs, fcbnerd keeps only
+that control's newest value and runs it next, which keeps the shell count down
+and still ends on the pedal's final position. If a command is still running
+after 5 seconds, fcbnerd says so on stderr.
 
-**Shell functions.** Functions and aliases from your interactive shell
-aren't loaded in `sh -c`. In bash, export a function to make it visible
+A command that exits non-zero gets its binding and exit status printed to
+stderr. Stopping fcbnerd (Ctrl+C, `kill`, closing the terminal, or a closed
+stdout) sends SIGTERM to any command still running, including processes it
+started.
+
+### Shell functions
+
+Functions and aliases from your interactive shell aren't loaded in `sh -c`. In bash, export a function to make it visible
 (macOS's `/bin/sh` is bash, so the default shell sees it):
 
 ```bash
@@ -153,10 +152,12 @@ fcbnerd -q --bind 'pc:1:*=greet'
 zsh can't export functions. Put them in a file and source it with zsh:
 `--shell /bin/zsh --bind 'pc:1:*=source ~/.fcbnerd.zsh && greet'`.
 
-**No release events on the FCB1010.** A binding fires on the press and
-nothing fires when you let go (see [FCB1010 notes](#fcb1010-notes)). For
-on/off behavior, keep state in the command, for example by toggling a file
-in `/tmp`.
+### On/off switches
+
+The FCB1010 sends nothing when you let go of a switch (see
+[FCB1010 notes](#fcb1010-notes)), so a binding fires on the press only. For
+on/off behavior, keep the state in the command, for example by toggling a
+file in `/tmp`.
 
 ## Output
 
@@ -194,8 +195,10 @@ unique ID.
 
 ## Examples
 
-**Shell + jq:** program 0 switches to the next Space, program 1 to the previous
-one. This needs more than one Space, the "Move left/right a space" shortcuts
+### Shell and jq
+
+Program 0 switches to the next Space, and program 1 to the previous one. This
+needs more than one Space, the "Move left/right a space" shortcuts
 enabled (the default) in System Settings → Keyboard → Keyboard Shortcuts →
 Mission Control, and for your terminal app both Accessibility permission and
 Automation permission to control System Events. macOS asks for the Automation
@@ -211,8 +214,10 @@ while read -r program; do
 done
 ```
 
-**Hammerspoon:** stream into Lua. Program 0 toggles play/pause, and an
-expression pedal on CC 27 sets the output volume. Output can arrive in
+### Hammerspoon
+
+Program 0 toggles play/pause, and an expression pedal on CC 27 sets the output
+volume. Output can arrive in
 partial chunks, so buffer until a newline. The path is for Apple Silicon;
 Homebrew on Intel installs to `/usr/local/bin`.
 
@@ -239,31 +244,31 @@ fcbnerd:start()
 
 Things about the pedal that consumers need to handle:
 
-- **There are no release events.** A press sends one message and letting go
-  sends nothing, so on/off behavior (first press "on", second "off") has to
-  be tracked by the consumer.
-- **The factory presets send different CC numbers from the same switch**
+- A press sends one message and letting go sends nothing. On/off behavior
+  (first press "on", second "off") has to be tracked by the consumer.
+- The factory presets send different CC numbers from the same switch
   depending on which preset is active. Run `fcbnerd -f text`, press each
   switch you plan to use, and note what it sends.
-- **Pressing a switch also re-sends that preset's expression-pedal values.**
-  Don't treat every `cc` on a pedal's controller as the foot moving.
-- **The expression pedals don't reach the full 0–127 range.** Part of the
-  travel sends nothing and the sweep covers roughly two-thirds of the values,
-  so rescale to the range you actually observe.
-- **The FCB1010 has 5-pin DIN MIDI only.** You need a USB MIDI interface; it
+- Pressing a switch also re-sends that preset's expression-pedal values, so
+  not every `cc` on a pedal's controller means the foot moved.
+- The expression pedals don't reach the full 0–127 range. Part of the travel
+  sends nothing and the sweep covers roughly two-thirds of the values, so
+  rescale to the range you actually see.
+- The pedal has 5-pin DIN MIDI only. You need a USB MIDI interface, which
   shows up as the `source` name.
 
 ## Development
 
 ```sh
 swift build
-swift test                                 # decoder and formatter unit tests
+swift test                                 # decoder, formatter and binding tests
 .build/debug/fcbnerd simulate &            # fake pedal
 .build/debug/fcbnerd --format text         # watch it
 ```
 
-`Sources/FCBNerdCore` decodes CoreMIDI's Universal MIDI Packets and formats
-output. It has no CoreMIDI dependency, so it's fully unit-tested.
+`Sources/FCBNerdCore` decodes CoreMIDI's Universal MIDI Packets, formats
+output and parses bindings. It has no CoreMIDI dependency, so its tests run
+without hardware.
 `Sources/fcbnerd` is the CLI: CoreMIDI connections, hotplug and the
 simulator.
 
