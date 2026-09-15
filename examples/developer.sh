@@ -35,12 +35,12 @@ set -euo pipefail
 # 1-10 send CC 20-29 with value 127 on channel 1. Stay in bank 1; other banks
 # send different messages.
 #
-# PEDAL_A is a space-separated list, because on the FCB1010 an expression
-# pedal's CC depends on the selected preset: pedal A sends CC 30 in preset 1,
-# CC 31 in preset 2, and so on up to CC 39. Pedal B does the same from CC 40,
-# and is left unbound here; set PEDAL_A= (empty) to unbind pedal A too. A
-# pedal pattern must never match a switch, or pressing that switch would also
-# move the volume. main checks this.
+# PEDAL_A and PEDAL_B are space-separated lists, because on the FCB1010 an
+# expression pedal's CC depends on the selected preset: pedal A sends CC 30
+# in preset 1, CC 31 in preset 2, and so on up to CC 39. Pedal B does the same
+# from CC 40. Set either to empty (PEDAL_B=) to unbind it. A pedal pattern
+# must never match a switch, or pressing that switch would also move the
+# volume. main checks this.
 # ---------------------------------------------------------------------------
 
 case ${MAPPING:-fcb1010} in
@@ -56,6 +56,7 @@ case ${MAPPING:-fcb1010} in
     : "${SWITCH_9:=1:28:127}"  # screenshot
     : "${SWITCH_10:=1:29:127}" # lock_screen
     : "${PEDAL_A=1:30:* 1:31:* 1:32:* 1:33:* 1:34:* 1:35:* 1:36:* 1:37:* 1:38:* 1:39:*}" # output_volume
+    : "${PEDAL_B=1:40:* 1:41:* 1:42:* 1:43:* 1:44:* 1:45:* 1:46:* 1:47:* 1:48:* 1:49:*}" # music_volume
     ;;
   simulator) # what `fcbnerd simulate` sends
     : "${SWITCH_1:=pc:1:0}"
@@ -69,6 +70,7 @@ case ${MAPPING:-fcb1010} in
     : "${SWITCH_9:=pc:1:8}"
     : "${SWITCH_10:=pc:1:9}"
     : "${PEDAL_A=1:27:*}"
+    : "${PEDAL_B=}" # the simulator sweeps one pedal; try PEDAL_A= PEDAL_B=1:27:*
     ;;
   *)
     echo "developer.sh: unknown MAPPING \"$MAPPING\" (expected fcb1010 or simulator)" >&2
@@ -272,7 +274,7 @@ lock_screen() {
 }
 
 # ---------------------------------------------------------------------------
-# Expression pedal: output volume
+# Expression pedal A: output volume
 #
 # The pedal sends 0-127; macOS volume is 0-100. fcbnerd only runs one of
 # these at a time and skips to the latest position, so a fast sweep doesn't
@@ -281,6 +283,24 @@ lock_screen() {
 
 output_volume() {
   osascript -e "set volume output volume $((MIDI_VALUE * 100 / 127))"
+}
+
+# ---------------------------------------------------------------------------
+# Expression pedal B: music volume
+#
+# Spotify's or Music's own volume, separate from the system's, so you can
+# duck the music under a call without turning the call down. Only apps that
+# are already running are touched; telling a closed app its volume would
+# launch it.
+# ---------------------------------------------------------------------------
+
+music_volume() {
+  local level=$((MIDI_VALUE * 100 / 127)) app
+  for app in Spotify Music; do
+    if pgrep -xq "$app"; then
+      osascript -e "tell application \"$app\" to set sound volume to $level"
+    fi
+  done
 }
 
 # ---------------------------------------------------------------------------
@@ -295,7 +315,8 @@ main() {
 
   export -f macro notify sound \
     open_home open_mail open_iterm chrome_window open_claude \
-    mic_toggle close_window rubber_duck screenshot lock_screen output_volume
+    mic_toggle close_window rubber_duck screenshot lock_screen \
+    output_volume music_volume
 
   local switches=(
     "$SWITCH_1" "$SWITCH_2" "$SWITCH_3" "$SWITCH_4" "$SWITCH_5"
@@ -316,18 +337,21 @@ main() {
 
   # `read -a` splits on spaces without expanding the * in each pattern as a
   # filename glob.
-  local pedal_patterns pattern switch
-  read -r -a pedal_patterns <<< "${PEDAL_A:-}"
-  for pattern in ${pedal_patterns[@]+"${pedal_patterns[@]}"}; do
-    for switch in "${switches[@]}"; do
-      case $switch in
-        "${pattern%:\*}":*)
-          echo "developer.sh: pedal pattern $pattern also matches switch $switch" >&2
-          exit 64
-          ;;
-      esac
+  local pedal macro pedal_patterns pattern switch
+  for pedal in "PEDAL_A output_volume" "PEDAL_B music_volume"; do
+    read -r pedal macro <<< "$pedal"
+    read -r -a pedal_patterns <<< "${!pedal:-}"
+    for pattern in ${pedal_patterns[@]+"${pedal_patterns[@]}"}; do
+      for switch in "${switches[@]}"; do
+        case $switch in
+          "${pattern%:\*}":*)
+            echo "developer.sh: $pedal pattern $pattern also matches switch $switch" >&2
+            exit 64
+            ;;
+        esac
+      done
+      binds+=(--bind "$pattern=macro $macro")
     done
-    binds+=(--bind "$pattern=macro output_volume")
   done
 
   echo "developer.sh: mapping ${MAPPING:-fcb1010}${DRY_RUN:+ (dry run)}"

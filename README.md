@@ -194,12 +194,26 @@ will act on a burst of stale presses.
 `{"type":"source","name":"UM-ONE","id":-1234567}`. `id` is the CoreMIDI
 unique ID.
 
-## Examples
+## Example
 
 [`examples/developer.sh`](examples/developer.sh) is a complete, commented
-setup for software engineers: ten switches for opening Finder, Mail, iTerm,
-Chrome and Claude, muting the mic and more, plus an expression pedal on
-output volume. Run it with `DRY_RUN=1` first to see what each switch would do.
+setup for software engineers. Run it with `DRY_RUN=1` first to see what each
+switch would do.
+
+| Control | Action |
+|---|---|
+| Switch 1 | Open your home folder in Finder |
+| Switch 2 | Open Mail |
+| Switch 3 | Open iTerm |
+| Switch 4 | New Chrome window, starting at the profile picker |
+| Switch 5 | Open Claude |
+| Switch 6 | Mute or unmute the microphone |
+| Switch 7 | Close the active window |
+| Switch 8 | Rubber duck: asks you a debugging question out loud |
+| Switch 9 | Screenshot an area or window to the clipboard |
+| Switch 10 | Lock the screen |
+| Expression pedal A | Output volume |
+| Expression pedal B | Spotify or Music volume |
 
 ### Shell and jq
 
