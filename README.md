@@ -209,7 +209,7 @@ switch would do.
 | Switch 5 | Open Claude |
 | Switch 6 | Mute or unmute the microphone |
 | Switch 7 | Screenshot an area or window to the clipboard |
-| Switch 8 | Rubber duck: asks you a debugging question out loud |
+| Switch 8 | Close the active Chrome tab |
 | Switch 9 | Quit the active application |
 | Switch 10 | Lock the screen |
 | Expression pedal A | Output volume |

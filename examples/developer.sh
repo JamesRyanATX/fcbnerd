@@ -16,9 +16,10 @@
 # DRY_RUN on while testing with it, because the simulator presses every
 # switch on a loop (lock screen included).
 #
-# Requirements: fcbnerd, plus iTerm, Google Chrome and Claude for switches
-# 3-5. macOS asks for permissions the first time some macros run:
-# notifications for your terminal, and Screen Recording for screenshot.
+# Requirements: fcbnerd, plus iTerm, Google Chrome and Claude for the
+# switches that use them. macOS asks for permissions the first time some
+# macros run: notifications for your terminal, Screen Recording for
+# screenshot, and control of Chrome for close_tab.
 
 set -euo pipefail
 
@@ -50,7 +51,7 @@ case ${MAPPING:-fcb1010} in
     : "${SWITCH_5:=1:24:127}"  # open_claude
     : "${SWITCH_6:=1:25:127}"  # mic_toggle
     : "${SWITCH_7:=1:26:127}"  # screenshot
-    : "${SWITCH_8:=1:27:127}"  # rubber_duck
+    : "${SWITCH_8:=1:27:127}"  # close_tab
     : "${SWITCH_9:=1:28:127}"  # quit_app
     : "${SWITCH_10:=1:29:127}" # lock_screen
     : "${PEDAL_A=1:30:* 1:31:* 1:32:* 1:33:* 1:34:* 1:35:* 1:36:* 1:37:* 1:38:* 1:39:*}" # output_volume
@@ -93,8 +94,8 @@ export DRY_RUN=${DRY_RUN:-}
 #      /bin/sh. Same interpreter, so the exported functions load exactly as
 #      written.
 #
-# Commands run in the background. A slow macro, like the rubber duck talking,
-# doesn't block the pedal, and pressing a switch twice starts it twice.
+# Commands run in the background. A slow macro doesn't block the pedal, and
+# pressing a switch twice starts it twice.
 #
 # Each command also gets the triggering message in its environment:
 # MIDI_TYPE, MIDI_CHANNEL, MIDI_CONTROLLER, MIDI_VALUE, MIDI_PROGRAM and
@@ -223,23 +224,21 @@ screenshot() {
 }
 
 # ---------------------------------------------------------------------------
-# Switch 8: rubber duck
+# Switch 8: close the active browser tab
 #
-# Asks you a debugging question out loud. Explaining the bug to it is the
-# point.
+# Closes the tab you're looking at in Chrome's front window, even while
+# another app has focus, so you can dismiss a page from the terminal. Closing
+# the last tab closes the window. Does nothing if Chrome isn't running;
+# telling a closed app anything would launch it.
 # ---------------------------------------------------------------------------
 
-rubber_duck() {
-  local questions=(
-    "What did you expect to happen, and what happened instead?"
-    "When did it last work, and what changed since?"
-    "Have you read the error message all the way to the end?"
-    "Is the code you're reading the code that's running?"
-    "What would have to be true for this to happen?"
-    "Can you make it fail with less code?"
-    "Which of your assumptions haven't you checked?"
-  )
-  say "${questions[RANDOM % ${#questions[@]}]}"
+close_tab() {
+  pgrep -xq "Google Chrome" || return 0
+  osascript > /dev/null <<'APPLESCRIPT'
+tell application "Google Chrome"
+  if (count of windows) > 0 then close active tab of front window
+end tell
+APPLESCRIPT
 }
 
 # ---------------------------------------------------------------------------
@@ -318,7 +317,7 @@ main() {
 
   export -f macro notify sound \
     open_home open_mail open_iterm chrome_window open_claude \
-    mic_toggle screenshot rubber_duck quit_app lock_screen \
+    mic_toggle screenshot close_tab quit_app lock_screen \
     output_volume music_volume
 
   local switches=(
@@ -333,7 +332,7 @@ main() {
     --bind "$SWITCH_5=macro open_claude"
     --bind "$SWITCH_6=macro mic_toggle"
     --bind "$SWITCH_7=macro screenshot"
-    --bind "$SWITCH_8=macro rubber_duck"
+    --bind "$SWITCH_8=macro close_tab"
     --bind "$SWITCH_9=macro quit_app"
     --bind "$SWITCH_10=macro lock_screen"
   )
