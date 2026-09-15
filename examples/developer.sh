@@ -2,7 +2,7 @@
 #
 # developer.sh: a footboard of macros for software engineers.
 #
-# Ten switches and an expression pedal, bound to things you'd otherwise
+# Ten switches and two expression pedals, bound to things you'd otherwise
 # reach for the keyboard to do mid-thought: open your home folder, Mail,
 # iTerm, Chrome or Claude, mute the mic for a call, and so on.
 #
@@ -19,8 +19,6 @@
 # Requirements: fcbnerd, plus iTerm, Google Chrome and Claude for switches
 # 3-5. macOS asks for permissions the first time some macros run:
 # notifications for your terminal, and Screen Recording for screenshot.
-# close_window needs Accessibility, which you grant by hand in System
-# Settings.
 
 set -euo pipefail
 
@@ -51,9 +49,9 @@ case ${MAPPING:-fcb1010} in
     : "${SWITCH_4:=1:23:127}"  # chrome_window
     : "${SWITCH_5:=1:24:127}"  # open_claude
     : "${SWITCH_6:=1:25:127}"  # mic_toggle
-    : "${SWITCH_7:=1:26:127}"  # close_window
+    : "${SWITCH_7:=1:26:127}"  # screenshot
     : "${SWITCH_8:=1:27:127}"  # rubber_duck
-    : "${SWITCH_9:=1:28:127}"  # screenshot
+    : "${SWITCH_9:=1:28:127}"  # quit_app
     : "${SWITCH_10:=1:29:127}" # lock_screen
     : "${PEDAL_A=1:30:* 1:31:* 1:32:* 1:33:* 1:34:* 1:35:* 1:36:* 1:37:* 1:38:* 1:39:*}" # output_volume
     : "${PEDAL_B=1:40:* 1:41:* 1:42:* 1:43:* 1:44:* 1:45:* 1:46:* 1:47:* 1:48:* 1:49:*}" # music_volume
@@ -100,7 +98,7 @@ export DRY_RUN=${DRY_RUN:-}
 #
 # Each command also gets the triggering message in its environment:
 # MIDI_TYPE, MIDI_CHANNEL, MIDI_CONTROLLER, MIDI_VALUE, MIDI_PROGRAM and
-# MIDI_SOURCE. output_volume uses MIDI_VALUE.
+# MIDI_SOURCE. The pedal macros use MIDI_VALUE.
 # ---------------------------------------------------------------------------
 
 # Every binding goes through here: log the press, honor DRY_RUN, run it.
@@ -115,7 +113,7 @@ macro() {
 }
 
 # A macOS notification. Arguments go to AppleScript as data, not spliced into
-# the script, so branch names with quotes in them can't break it.
+# the script, so text with quotes in it can't break it.
 notify() {
   osascript - "$1" "${2:-}" > /dev/null <<'APPLESCRIPT'
 on run argv
@@ -214,20 +212,14 @@ mic_toggle() {
 }
 
 # ---------------------------------------------------------------------------
-# Switch 7: close the active window
+# Switch 7: screenshot to the clipboard
 #
-# Clicks the close button on the front window of whatever app you're in, so
-# it closes the whole window, not a tab the way ⌘W does in Chrome or iTerm.
-# Apps with unsaved changes still ask first. Needs Accessibility permission
-# for your terminal (System Settings → Privacy & Security → Accessibility).
+# Drag to select an area, or press space to pick a window. The image lands on
+# the clipboard, ready to paste into a bug report.
 # ---------------------------------------------------------------------------
 
-close_window() {
-  osascript > /dev/null <<'APPLESCRIPT'
-tell application "System Events" to tell (first process whose frontmost is true)
-  click (first button of front window whose subrole is "AXCloseButton")
-end tell
-APPLESCRIPT
+screenshot() {
+  screencapture -ic
 }
 
 # ---------------------------------------------------------------------------
@@ -251,14 +243,25 @@ rubber_duck() {
 }
 
 # ---------------------------------------------------------------------------
-# Switch 9: screenshot to the clipboard
+# Switch 9: quit the active application
 #
-# Drag to select an area, or press space to pick a window. The image lands on
-# the clipboard, ready to paste into a bug report.
+# Asks whatever app you're in to quit, like ⌘Q. It's a polite quit, so apps
+# with unsaved changes still ask first. lsappinfo names the frontmost app
+# without any permissions. Finder is skipped, since it only relaunches. Mind
+# the terminal running this script: quitting it stops the pedal.
 # ---------------------------------------------------------------------------
 
-screenshot() {
-  screencapture -ic
+quit_app() {
+  local bundle
+  bundle=$(lsappinfo info -only bundleid "$(lsappinfo front)" | cut -d '"' -f 4)
+  case $bundle in
+    '' | com.apple.finder) return ;;
+  esac
+  osascript - "$bundle" > /dev/null <<'APPLESCRIPT'
+on run argv
+  tell application id (item 1 of argv) to quit
+end run
+APPLESCRIPT
 }
 
 # ---------------------------------------------------------------------------
@@ -315,7 +318,7 @@ main() {
 
   export -f macro notify sound \
     open_home open_mail open_iterm chrome_window open_claude \
-    mic_toggle close_window rubber_duck screenshot lock_screen \
+    mic_toggle screenshot rubber_duck quit_app lock_screen \
     output_volume music_volume
 
   local switches=(
@@ -329,9 +332,9 @@ main() {
     --bind "$SWITCH_4=macro chrome_window"
     --bind "$SWITCH_5=macro open_claude"
     --bind "$SWITCH_6=macro mic_toggle"
-    --bind "$SWITCH_7=macro close_window"
+    --bind "$SWITCH_7=macro screenshot"
     --bind "$SWITCH_8=macro rubber_duck"
-    --bind "$SWITCH_9=macro screenshot"
+    --bind "$SWITCH_9=macro quit_app"
     --bind "$SWITCH_10=macro lock_screen"
   )
 

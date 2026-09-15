@@ -208,9 +208,9 @@ switch would do.
 | Switch 4 | New Chrome window, starting at the profile picker |
 | Switch 5 | Open Claude |
 | Switch 6 | Mute or unmute the microphone |
-| Switch 7 | Close the active window |
+| Switch 7 | Screenshot an area or window to the clipboard |
 | Switch 8 | Rubber duck: asks you a debugging question out loud |
-| Switch 9 | Screenshot an area or window to the clipboard |
+| Switch 9 | Quit the active application |
 | Switch 10 | Lock the screen |
 | Expression pedal A | Output volume |
 | Expression pedal B | Spotify or Music volume |
