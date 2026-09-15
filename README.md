@@ -197,8 +197,8 @@ unique ID.
 ## Examples
 
 [`examples/developer.sh`](examples/developer.sh) is a complete, commented
-setup for software engineers: ten switches for running tests, waiting on CI,
-syncing the branch, muting the mic and more, plus an expression pedal on
+setup for software engineers: ten switches for opening Finder, Mail, iTerm,
+Chrome and Claude, muting the mic and more, plus an expression pedal on
 output volume. Run it with `DRY_RUN=1` first to see what each switch would do.
 
 ### Shell and jq
